@@ -1,0 +1,25 @@
+[toolchain]
+
+[features]
+seeds = false
+skip-lint = false
+
+[programs.localnet]
+biscuit = "7Zrb5JhpFNgP3UYuvoXCV4JbevnwvQYsxDCmrZb7jDed"
+
+[programs.devnet]
+biscuit = "7Zrb5JhpFNgP3UYuvoXCV4JbevnwvQYsxDCmrZb7jDed"
+
+[registry]
+url = ""
+
+[provider]
+cluster = "devnet"
+wallet = "/home/mykola_admin/.config/solana/id.json"
+
+[scripts]
+test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"
+
+[[test.genesis]]
+address = "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"  
+program = "dumps/metaplex_token_metadata_program.so"
