@@ -6,9 +6,16 @@
     "dependencies": {
         "@coral-xyz/anchor": "^0.29.0",
         "@metaplex-foundation/mpl-token-metadata": "^3.2.1",
+        "@metaplex-foundation/umi": "^0.9.1",
+        "@orca-so/common-sdk": "^0.5.4",
+        "@orca-so/sdk": "^1.2.26",
+        "@orca-so/whirlpool-sdk": "^0.4.2",
+        "@orca-so/whirlpools-sdk": "^0.12.5",
         "@solana/spl-token": "^0.4.1",
         "@solana/web3.js": "^1.91.1",
-        "dotenv": "^16.4.5"
+        "decimal.js": "^10.4.3",
+        "dotenv": "^16.4.5",
+        "ts-node": "^10.9.2"
     },
     "devDependencies": {
         "@types/bn.js": "^5.1.0",

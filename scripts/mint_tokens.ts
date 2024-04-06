@@ -1,5 +1,6 @@
 
 
+import 'dotenv/config'
 import * as anchor from "@coral-xyz/anchor";
 import {
     createMint,
@@ -15,13 +16,14 @@ import { BN } from "bn.js";
 import fs from "fs";
 
 const tokenMint = new anchor.web3.PublicKey(
-    ""
+    "ArUaz7YBGZ3Z5Ut1VNLLEuYV2P1dM9FWmwxf6XMxTbCy"
 );
 const recepient =  new anchor.web3.PublicKey(
-    ""
+    "8QdnKN4JbhpSLdhJVcCswmSy3X1Z3hmyZEG3VvGGNHn7"
 );
 
-const amounts = 1_000_000_000; // 1 token;
+
+const amount = 1_000_000_000_000_000_000; // 1 token;
 
 
 async function run() {
@@ -43,7 +45,7 @@ async function run() {
         tokenMint,
         user1ATA.address,
         wallet.payer,
-        amounts,
+        amount,
         [],
         {},
         TOKEN_PROGRAM_ID

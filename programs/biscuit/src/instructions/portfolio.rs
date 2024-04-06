@@ -1,60 +1,72 @@
 use anchor_lang::prelude::*;
+use std::string::String;
 use anchor_spl::token::{Mint, Token};
 use mpl_token_metadata::{
     instructions::{CreateV1Cpi, CreateV1CpiAccounts, CreateV1InstructionArgs},
     types::{CollectionDetails, PrintSupply, TokenStandard},
 };
 use crate::err::BiscuitError;
+use crate::config::BiscuitConfig;
+use crate::ID;
 
- 
 #[derive(Accounts)]
+#[instruction(portfolio_id: u8)]
 pub struct CreatePortfolio<'info> {
-    #[account(mut)]
-    pub authority: Signer<'info>,
+    #[account(mut, seeds = [b"config"], bump)]
+    pub config: Account<'info, BiscuitConfig>,
+
+    #[account(mut, address = config.admin_authority)]
+    pub signer: Signer<'info>,
+
+    // #[account(mut)]
+    // pub authority: UncheckedAccount<'info>,
 
     // The PDA is both the address of the mint account and the mint authority
     #[account(
         init,
-        seeds = [b"collection"],
+        seeds = [b"collection", ID.as_ref(), &portfolio_id.to_le_bytes()],
         bump,
-        payer = authority,
+        payer = signer,
         mint::decimals = 0,
-        mint::authority = authority,
-        mint::freeze_authority = authority,
+        mint::authority = mint,
+        mint::freeze_authority = mint,
     )]
-    pub collection_mint: Account<'info, Mint>,
+    pub mint: Account<'info, Mint>,
 
     ///CHECK: Using "address" constraint to validate metadata account address
     #[account(
         mut,
-        seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), collection_mint.key().as_ref()],
+        seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), mint.key().as_ref()],
         seeds::program = mpl_token_metadata::ID,
         bump,
     )]
-    pub metadata_account: UncheckedAccount<'info>,
+    pub metadata: UncheckedAccount<'info>,
 
     ///CHECK: Using "address" constraint to validate metadata account address
     #[account(
         mut,
-        seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), collection_mint.key().as_ref(), b"edition"],
+        seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), mint.key().as_ref(), b"edition"],
         seeds::program = mpl_token_metadata::ID,
         bump,
     )]
-    pub master_edition_account: UncheckedAccount<'info>,
+    pub master_edition: UncheckedAccount<'info>,
 
     #[account(
         init,
-        payer = authority,
-        space = 106, 
-        seeds = [b"onchain-data", metadata_account.key().as_ref()],
+        payer = signer,
+        space = 500, 
+        seeds = [b"onchain-data", mint.key().as_ref()],
         bump
     )]
-    pub portfolio_metadata: Account<'info, PortfolioCollectionData>, 
+    pub onchain_data: Account<'info, PortfolioCollectionData>, 
+    
     /// CHECK: checked in CPI
     pub mpl_program: UncheckedAccount<'info>,
+    
     pub token_program: Program<'info, Token>,
     pub system_program: Program<'info, System>,
     pub rent: Sysvar<'info, Rent>,
+    
     /// CHECK: checked in CPI
     pub sysvar_instructions: UncheckedAccount<'info>,
 }
@@ -64,22 +76,28 @@ pub struct CreatePortfolio<'info> {
 pub struct PortfolioCollectionData {
     pub tokens: Vec<Pubkey>,
     pub percentages: Vec<u8>,
-    bump: u8,
+    pub fee_in: u8,
+    pub fee_out: u8,
+    pub bump: u8,
 }
 
 pub fn create_portfolio(
     ctx: Context<CreatePortfolio>,
-    name: String,
-    symbol: String,
+    portfolio_id: u8,  
     uri: String,
     tokens: Vec<Pubkey>,
-    percentages: Vec<u8>
+    percentages: Vec<u8>,
+    fee_in: u8,
+    fee_out: u8
 ) -> Result<()> {
     // Confiugure these args as you wish
     if tokens.len()!= percentages.len(){
         return err!(BiscuitError::DataLengthMissmatch);
     }
-    
+
+    let name = String::from("PortfolioCollection") + &portfolio_id.to_string();
+    let symbol = String::from("BPC");
+
     let args = CreateV1InstructionArgs {
         name,
         symbol,
@@ -97,13 +115,14 @@ pub fn create_portfolio(
         print_supply: Some(PrintSupply::Zero),
     };
 
+    let signer = &ctx.accounts.signer.to_account_info();
     let token_program = &ctx.accounts.token_program.to_account_info();
-    let metadata = &ctx.accounts.metadata_account.to_account_info();
-    let collection_mint = &ctx.accounts.collection_mint.to_account_info();
-    let authority = &ctx.accounts.authority.to_account_info();
+    let metadata = &ctx.accounts.metadata.to_account_info();
+    let collection_mint = &ctx.accounts.mint.to_account_info();
+    // let authority = &ctx.accounts.authority.to_account_info();
     let system_program = &ctx.accounts.system_program.to_account_info();
     let sysvar_instructions = &ctx.accounts.sysvar_instructions.to_account_info();
-    let master_edition = &ctx.accounts.master_edition_account.to_account_info();
+    let master_edition = &ctx.accounts.master_edition.to_account_info();
     let mpl_program = &ctx.accounts.mpl_program.to_account_info();
 
     let create_cpi = CreateV1Cpi::new(
@@ -112,9 +131,9 @@ pub fn create_portfolio(
             metadata: metadata,
             master_edition: Some(master_edition),
             mint: (collection_mint, true),
-            authority: authority,
-            payer: authority,
-            update_authority: (authority, true),
+            authority: collection_mint,
+            payer: signer,
+            update_authority: (collection_mint, true),
             system_program: system_program,
             sysvar_instructions: sysvar_instructions,
             spl_token_program: Some(token_program),
@@ -125,20 +144,21 @@ pub fn create_portfolio(
     let seeds: &[&[&[u8]]] = &[
         &[
             "collection".as_bytes(),
-            &[ctx.bumps.collection_mint],
+            ID.as_ref(),
+            &portfolio_id.to_le_bytes(),
+            &[ctx.bumps.mint],
         ],
     ];
 
-    msg!("Invoke signed");
+    msg!("Invoke signed create ccolletion");
     let _= create_cpi.invoke_signed(seeds);
 
-    // let mut data: &[u8] = &metadata.try_borrow_data()?;
-    // let acc = Metadata::from_bytes(&mut data)?;
-
-    let portfolio_data = &mut ctx.accounts.portfolio_metadata;
+    let portfolio_data = &mut ctx.accounts.onchain_data;
     portfolio_data.tokens = tokens;
     portfolio_data.percentages = percentages;
-    portfolio_data.bump = ctx.bumps.portfolio_metadata;  
+    portfolio_data.fee_in = fee_in;
+    portfolio_data.fee_out = fee_out;  
+    portfolio_data.bump = ctx.bumps.mint;
 
     Ok(())
 }
