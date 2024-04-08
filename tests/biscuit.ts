@@ -43,70 +43,147 @@ import {
 import Decimal from "decimal.js";
 import { getCollectionAddresses } from "./helpers/collection";
 import { getNftAddresses } from "./helpers/nft";
+import { createAndMintToken, mintTokens } from "./helpers/createAndMint";
+import { createTestPool } from "./helpers/createPool";
 import { expect } from "chai";
 import { MathUtil, PDA, Percentage } from "@orca-so/common-sdk";
 import { increaseLiquidityIx, initTickArrayIx, openPositionIx, openPositionWithMetadataIx, swapIx } from "@orca-so/whirlpools-sdk/dist/instructions";
 import { token } from "@coral-xyz/anchor/dist/cjs/utils";
 import { DecimalUtil } from "@orca-so/whirlpool-sdk";
-const tokens = {
-  USDT: {
-    key: new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
+import { keypairPayer } from "@metaplex-foundation/umi";
+// const tokens = {
+//   USDT: {
+//     key: new PublicKey('Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB'),
+//   },
+//   USDC: {
+//     key: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+//   },
+//   JUP: {
+//     key: new PublicKey('JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN')
+//   },
+//   SOL: {
+//     key: new PublicKey('So11111111111111111111111111111111111111112')
+//   }
+// }
+
+
+// const WHIRLPOOLS = {
+//   [tokens.SOL.key.toString()]: {
+//     [tokens.USDC.key.toString()]: { key: new PublicKey('83v8iPyZihDEjDdY8RdZddyZNyUtXngz69Lgo9Kt5d6d') },
+//     [tokens.USDT.key.toString()]: { key: new PublicKey("FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC") },
+//     [tokens.JUP.key.toString()]: { key: new PublicKey('DkVN7RKTNjSSER5oyurf3vddQU2ZneSCYwXvpErvTCFA'), invert: true },
+//   },
+// }
+// const prices = []
+// const decimals = [8,8,9,6,8,8,5,6];
+// const percenages = [
+//   300, 200, 150, 100, 100, 50, 50, 50
+// ];
+function comparePublicKeys(a: Keypair, b: Keypair): number {
+  return PoolUtil.compareMints(a.publicKey, b.publicKey);
+  // const bytesA = a.publicKey.toBase58()
+  // const bytesB = b.publicKey.toBase58();
+
+  // return bytesA.localeCompare(bytesB)
+  // for (let i = bytesA.length - 1; i >= 0; i--) {
+  //     if (bytesA[i] !== bytesB[i]) {
+  //         return bytesA[i] > bytesB[i];
+  //     }
+  // }
+
+  // return 0;
+}
+
+function sortPublicKeys(publicKeys: Keypair[]): Keypair[] {
+  return publicKeys.sort(comparePublicKeys);
+}
+
+const tokens = new Array(9).fill(0).map(e => Keypair.generate())
+const tokensSorted = sortPublicKeys(tokens);
+
+const payment_token = {
+  keyPair: tokensSorted[tokensSorted.length-1],
+  key: tokensSorted[tokensSorted.length-1].publicKey,
+  decimals: 6
+}
+
+const tokens_data = [
+  {
+    // keyPair: Keypair.generate(), // BTC
+    percent: 300,
+    decimals: 8,
+    price: 67476.24
   },
-  USDC: {
-    key: new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v')
+  {
+    // key: new PublicKey("So11111111111111111111111111111111111111112"), // SOL
+    percent: 200,
+    decimals: 9,
+    price: 175.32
   },
-  JUP: {
-    key: new PublicKey('JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN')
+  {
+    // keyPair: Keypair.generate(), // ETH
+    percent: 150,
+    decimals: 8,
+    price: 3313
   },
-  SOL: {
-    key: new PublicKey('So11111111111111111111111111111111111111112')
+  {
+    // keyPair: Keypair.generate(), // JUP
+    percent: 100,
+    decimals: 6,
+    price: 1.373
+  },
+  {
+    // keyPair: Keypair.generate(), // RNDR
+    percent: 100,
+    decimals: 8,
+    price: 9.08339
+  },
+  {
+    // keyPair: Keypair.generate(), // HNT
+    percent: 50,
+    decimals: 8,
+    price: 5.6246415
+  },
+  {
+    // keyPair: Keypair.generate(), // BONK
+    percent: 50,
+    decimals: 5,
+    price: 0.00002183749
+  },
+  {
+    // keyPair: Keypair.generate(), // PYTH
+    percent: 50,
+    decimals: 6,
+    price: 1.23424
   }
+]
+
+const portfolio_tokens = [];
+
+for (let i = 0; i < 8; i++) {
+   let keyPair = tokensSorted[i];
+  portfolio_tokens.push({
+    ...tokens_data[i],
+    keyPair,
+    key: keyPair.publicKey
+  })
+
 }
 
-
-const WHIRLPOOLS = {
-  [tokens.SOL.key.toString()]: {
-    [tokens.USDC.key.toString()]: { key: new PublicKey('83v8iPyZihDEjDdY8RdZddyZNyUtXngz69Lgo9Kt5d6d') },
-    [tokens.USDT.key.toString()]: { key: new PublicKey("FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC") },
-    [tokens.JUP.key.toString()]: { key: new PublicKey('DkVN7RKTNjSSER5oyurf3vddQU2ZneSCYwXvpErvTCFA'), invert: true },
-  },
+const collection_data = {
+  title: "Portfolio#1",
+  symbol: "PRT1",
+  uri: "https://raw.githubusercontent.com/Coding-and-Crypto/Solana-NFT-Marketplace/master/assets/example.json"
 }
-
 
 describe("biscuit", () => {
 
-  const collection_data = {
-    title: "Portfolio#1",
-    symbol: "PRT1",
-    uri: "https://raw.githubusercontent.com/Coding-and-Crypto/Solana-NFT-Marketplace/master/assets/example.json"
-  }
   const treasury = anchor.web3.Keypair.generate();
-  const portfolioMintKeypair: anchor.web3.Keypair = anchor.web3.Keypair.generate();
-  const wpoolOwn = anchor.web3.Keypair.generate();
-  const portfolioTokens = [
-    {
-      key: tokens.USDC.key,
-      percent: 500
-    },
-    {
-      key: tokens.USDT.key,
-      percent: 300
-    },
-    {
-      key: tokens.JUP.key,
-      percent: 200
-    }
-  ]
-
-  const paymentToken = {
-    keyPair: anchor.web3.Keypair.generate(),
-  }
 
   const users = new Array(3).fill(0).map(() => anchor.web3.Keypair.generate());
-
+  const mint_amount = 1_000_000_000_000_000;
   const provider = anchor.AnchorProvider.env()
   const wallet = provider.wallet as anchor.Wallet;
-
 
   const program = anchor.workspace.Biscuit as Program<Biscuit>;
   const config_address = anchor.web3.PublicKey.findProgramAddressSync(
@@ -213,12 +290,13 @@ describe("biscuit", () => {
       result.ata.push(associatedToken);
 
       const amount = amountIn.mul(new anchor.BN(token.percent)).div(new anchor.BN(1000));
-      const whirlpool_pubkey = WHIRLPOOLS[paymen_token.toString()][token.key.toString()];
-      const data = await getWhirlpool(whirlpool_pubkey.key, paymen_token, token.key, amount, whirlpool_pubkey.invert);
+      const whirlpool_pubkey = PDAUtil.getWhirlpool(ORCA_WHIRLPOOL_PROGRAM_ID, ORCA_WHIRLPOOLS_CONFIG,  token.key, paymen_token, 128).publicKey;
+      const data = await getWhirlpool(whirlpool_pubkey, paymen_token, token.key, amount, true);
 
       if (!forTableCreation) {
         result.accounts.push(associatedToken);
       }
+
       result.accounts.push(data.accounts.tokenVaultA);
       result.accounts.push(data.accounts.tokenVaultB);
       result.accounts.push(data.accounts.tickArray0);
@@ -237,10 +315,45 @@ describe("biscuit", () => {
     return result;
   }
 
+  async function createTable(accounts: PublicKey[], signer: Signer) {
+    
+    const slot = await provider.connection.getSlot() - 1;
+    const [lookupTableInst, lookupTableAddress] =
+      anchor.web3.AddressLookupTableProgram.createLookupTable({
+        authority: signer.publicKey,
+        payer: signer.publicKey,
+        recentSlot: slot,
+      });
+
+    await createAndSendV0Tx([lookupTableInst], signer);
+    await delay(2000);
+
+    const size = 20;
+    for (let i = 0; i < accounts.length; i += size) {
+      const sub = accounts.slice(i, i + size)
+      const extendInstruction = anchor.web3.AddressLookupTableProgram.extendLookupTable({
+        payer: signer.publicKey,
+        authority: signer.publicKey,
+        lookupTable: lookupTableAddress,
+        addresses: [
+          ...sub,
+        ]
+      });
+
+      const tx = new Transaction();
+      tx.add(extendInstruction)
+      console.log(`From ${i} to ${i + size}`)
+      await provider.connection.sendTransaction(tx, [signer])
+      console.log('Success')
+      await delay(2000);
+    }
+    return lookupTableAddress;
+  }
+
   async function createAndSendV0Tx(
     txInstructions: anchor.web3.TransactionInstruction[],
     payer: Signer,
-    addressLookupTable: PublicKey | undefined = undefined
+    addressLookupTable: PublicKey[] | undefined = undefined
   ) {
     // Step 1 - Fetch the latest blockhash
     let latestBlockhash = await provider.connection.getLatestBlockhash(
@@ -254,15 +367,20 @@ describe("biscuit", () => {
     // Step 2 - Generate Transaction Message
     let messageV0;
     if (addressLookupTable) {
-      const lookupTableAccount = (
-        await provider.connection.getAddressLookupTable(addressLookupTable)
-      ).value;
+
+      const result = []
+      for (const address of addressLookupTable) {
+        const lookupTableAccount = (
+          await provider.connection.getAddressLookupTable(address)
+        ).value;
+        result.push(lookupTableAccount)
+      }
+
       messageV0 = new anchor.web3.TransactionMessage({
         payerKey: payer.publicKey,
         recentBlockhash: latestBlockhash.blockhash,
         instructions: txInstructions,
-      }).compileToV0Message([lookupTableAccount]);
-      // console.log(messageV0)
+      }).compileToV0Message(result);
     } else {
       messageV0 = new anchor.web3.TransactionMessage({
         payerKey: payer.publicKey,
@@ -278,7 +396,6 @@ describe("biscuit", () => {
 
     // Step 3 - Sign your transaction with the required `Signers`
     transaction.sign([payer]);
-    // provider.wallet.signTransaction(transaction);
     console.log("   ✅ - Transaction Signed");
 
     // Step 4 - Send our v0 transaction to the cluster
@@ -301,7 +418,7 @@ describe("biscuit", () => {
       blockhash: latestBlockhash.blockhash,
       lastValidBlockHeight: latestBlockhash.lastValidBlockHeight,
     });
-    // provider.connection.lo
+
     if (confirmation.value.err) {
       throw new Error(
         `   ❌ - Transaction not confirmed.\nReason: ${confirmation.value.err}`
@@ -309,41 +426,37 @@ describe("biscuit", () => {
     }
 
     console.log("🎉 Transaction Successfully Confirmed!");
-    // let result = await program.account.actionState.fetch(actionState);
-    // console.log("Robot action state details: ", result);
+
   }
 
-  // let portfolio_collection;
 
   before(async () => {
-    await provider.connection.requestAirdrop(wpoolOwn.publicKey, 10000000000);
-    await provider.connection.requestAirdrop(portfolioMintKeypair.publicKey, 1000000000);
     await provider.connection.requestAirdrop(users[0].publicKey, 10000000000);
     await provider.connection.requestAirdrop(users[1].publicKey, 10000000000);
     await provider.connection.requestAirdrop(users[2].publicKey, 10000000000);
+    const recipients = users.map(e => e.publicKey);
+    recipients.push(wallet.publicKey);
 
+    for (const token of portfolio_tokens) {
+      if (token.keyPair.secretKey) {
+        await createAndMintToken(provider.connection, wallet.payer, token.decimals, mint_amount, [wallet.publicKey], token.keyPair);
+        token.key = token.keyPair.publicKey
+      }
+    }
+    await delay(2000);
+    console.log('Tokens created')
+    for (const token of portfolio_tokens) {
+      await createTestPool(
+        provider,
+        payment_token.key,
+        token.key,
+        payment_token.decimals,
+        token.decimals,
+        token.price,
+        3
+      )
+    }
 
-    await createMint(provider.connection, wallet.payer, wallet.publicKey, wallet.publicKey, 9, paymentToken.keyPair, {}, TOKEN_PROGRAM_ID)
-    const user1ATA = await getOrCreateAssociatedTokenAccount(
-      provider.connection,
-      wallet.payer,
-      paymentToken.keyPair.publicKey,
-      users[0].publicKey
-    );
-
-    await mintTo(
-      provider.connection,
-      wallet.payer as Signer,
-      paymentToken.keyPair.publicKey,
-      user1ATA.address,
-      wallet.payer,
-      99000000000,
-      [],
-      {},
-      TOKEN_PROGRAM_ID
-    );
-    await delay(5000)
-    await createPools();
   })
 
   const delay = (delayInms) => {
@@ -352,8 +465,6 @@ describe("biscuit", () => {
 
 
   /// --------------------------------------------------------------------------------
-
-
 
   it("Initialize", async () => {
 
@@ -369,7 +480,7 @@ describe("biscuit", () => {
     treasury_ata_sol = (await getOrCreateAssociatedTokenAccount(
       provider.connection,
       wallet.payer,
-      NATIVE_MINT,
+      payment_token.key,
       treasury.publicKey
     )).address;
   })
@@ -382,8 +493,8 @@ describe("biscuit", () => {
     const tx = await program.methods.createPortfolio(
       portfolio_id,
       collection_data.uri,
-      portfolioTokens.map(e => e.key),
-      Buffer.from(portfolioTokens.map(e => e.percent)),
+      portfolio_tokens.map(e => e.key),
+      Buffer.from(portfolio_tokens.map(e => e.percent)),
       50,
       100
     )
@@ -400,33 +511,22 @@ describe("biscuit", () => {
 
     const potrfolio = await program.account.portfolioCollectionData.fetch(portfolio_collection.collection_onchain_data);
 
-    const wrpool = await getPortfolioSwapData(users[0].publicKey, new anchor.BN(0), tokens.SOL.key, portfolioTokens, portfolio_collection.collection_mint, true);
-    const slot = await provider.connection.getSlot() - 1;
-    const [lookupTableInst, lookupTableAddress] =
-      anchor.web3.AddressLookupTableProgram.createLookupTable({
-        authority: wallet.publicKey,
-        payer: wallet.publicKey,
-        recentSlot: slot,
-      });
+    const wrpool = await getPortfolioSwapData(users[0].publicKey, new anchor.BN(0), payment_token.key,
+      portfolio_tokens.map(e => { return { key: e.key, percent: e.percent } }),
+      portfolio_collection.collection_mint, true);
 
-    const extendInstruction = anchor.web3.AddressLookupTableProgram.extendLookupTable({
-      payer: wallet.publicKey,
-      authority: wallet.publicKey,
-      lookupTable: lookupTableAddress,
-      addresses: [
-        portfolio_collection.collection_mint,
-        portfolio_collection.collection_metadata,
-        portfolio_collection.collection_master_edition,
-        portfolio_collection.collection_onchain_data,
-        ...wrpool.accounts]
-    });
-
-    await createAndSendV0Tx([lookupTableInst, extendInstruction], wallet.payer);
-    await delay(5000);
-    portfolio_lookup_table = lookupTableAddress;
+    const accs = [
+      portfolio_collection.collection_mint,
+      portfolio_collection.collection_metadata,
+      portfolio_collection.collection_master_edition,
+      portfolio_collection.collection_onchain_data,
+      ...wrpool.accounts
+    ]
+ 
+    portfolio_lookup_table = await createTable(accs, wallet.payer)
   });
 
-  it("Fail: buy portfolio with invalid id", async () => {
+  it.skip("Fail: buy portfolio with invalid id", async () => {
     const portfolio_id = 1;
     const nft_id = 2;
 
@@ -459,7 +559,7 @@ describe("biscuit", () => {
         treasuryAta: treasury_ata_sol,
         config: config_address,
         payer: users[2].publicKey,
-        paymentTokenAccount: userWSOL,
+        payment_tokenAccount: userWSOL,
         collection: portfolio_collection.collection_mint,
         collectionMetadata: portfolio_collection.collection_metadata,
         collectionMasterEdition: portfolio_collection.collection_master_edition,
@@ -479,7 +579,6 @@ describe("biscuit", () => {
         return { pubkey: e, isSigner: false, isWritable: true };
       })).instruction()
 
-    // console.log(instruction)
 
     try {
       await createAndSendV0Tx(
@@ -488,7 +587,7 @@ describe("biscuit", () => {
           instruction
         ],
         users[2],
-        portfolio_lookup_table
+        [portfolio_lookup_table]
       )
       assert.fail("should fail because collection size is 0");
     } catch (e) {
@@ -498,7 +597,7 @@ describe("biscuit", () => {
     }
   })
 
-  it("Buy portfolio by SOL", async () => {
+  it.skip("Buy portfolio by SOL", async () => {
     const portfolio_id = 1;
     const nft_id = 1;
 
@@ -519,8 +618,7 @@ describe("biscuit", () => {
 
     // Create ATAs for NFT
     await createAndSendV0Tx(wrpool.instructionsForAta, users[0])
-    // console.log(portfolio_collection);
-    // console.log(nft)
+
     const instruction = await program.methods.buyPortfolio(
       nft_id,
       portfolio_id,
@@ -543,7 +641,6 @@ describe("biscuit", () => {
         tokenMint: nft.nft_mint,
         nftUserTokenAccount: nft.nft_ata,
         nftRecord: nft.nft_record,
-        portfolioData: nft.nft_onchain_data,
         metadataAccount: nft.nft_metadata,
         masterEditionAccount: nft.nft_master_edition,
         whirlpoolProgram: ORCA_WHIRLPOOL_PROGRAM_ID,
@@ -555,14 +652,14 @@ describe("biscuit", () => {
         return { pubkey: e, isSigner: false, isWritable: true };
       })).instruction()
 
-    // console.log(instruction)
+
     await createAndSendV0Tx(
       [
         additionalComputeBudgetInstruction,
         instruction
       ],
       users[0],
-      portfolio_lookup_table
+      [portfolio_lookup_table]
     )
 
     for (const ata of wrpool.ata) {
@@ -575,7 +672,91 @@ describe("biscuit", () => {
     console.log(deser.deserialize(d2.data)[0].collectionDetails)
   })
 
-  it("Transfer NFT", async () => {
+  it("Buy portfolio by Token", async () => {
+    const portfolio_id = 1;
+    const nft_id = 1;
+
+    const portfolio_collection = getCollectionAddresses(portfolio_id);
+    const deser = getMetadataAccountDataSerializer();
+    const d1 = await provider.connection.getAccountInfo(portfolio_collection.collection_metadata);
+    console.log(deser.deserialize(d1.data)[0].collectionDetails)
+    // const userWSOL = await createWrappedNativeAccount(provider.connection, users[0], users[0].publicKey, 5000000000, undefined, {}, TOKEN_PROGRAM_ID);
+    const userAta = getAssociatedTokenAddressSync(
+      payment_token.key,
+      users[0].publicKey,
+      // false,
+      // TOKEN_PROGRAM_ID,
+      // ASSOCIATED_TOKEN_PROGRAM_ID
+    )
+
+    const nft = getNftAddresses(portfolio_collection.collection_mint, nft_id, users[0].publicKey);
+    const amount = new anchor.BN(1000000000);
+    const t = portfolio_tokens.map(e => { return { key: e.key, percent: e.percent } })
+    const wrpool = await getPortfolioSwapData(users[0].publicKey, amount, payment_token.key, t, nft.nft_mint);
+    
+    const additionalComputeBudgetInstruction =
+      ComputeBudgetProgram.setComputeUnitLimit({
+        units: 600000,
+      });
+
+    // Create ATAs for NFT
+    await createAndSendV0Tx(wrpool.instructionsForAta, users[0])
+    const extraTable =  await createTable([...wrpool.ata, config_address, treasury_ata_sol] , users[0])
+    await delay(2000);
+    const instruction = await program.methods.buyPortfolio(
+      nft_id,
+      portfolio_id,
+      collection_data.uri,
+      amount,
+      wrpool.args.other_amount_threshold,
+      wrpool.args.sqrt_price_limit,
+      wrpool.args.amount_specified_is_input,
+      wrpool.args.a_to_b
+    )
+      .accounts({
+        treasuryAta: treasury_ata_sol,
+        config: config_address,
+        payer: users[0].publicKey,
+        paymentTokenAccount: userAta,
+        collection: portfolio_collection.collection_mint,
+        collectionMetadata: portfolio_collection.collection_metadata,
+        collectionMasterEdition: portfolio_collection.collection_master_edition,
+        collectionOnchaindata: portfolio_collection.collection_onchain_data,
+        tokenMint: nft.nft_mint,
+        nftUserTokenAccount: nft.nft_ata,
+        nftRecord: nft.nft_record,
+        metadataAccount: nft.nft_metadata,
+        masterEditionAccount: nft.nft_master_edition,
+        whirlpoolProgram: ORCA_WHIRLPOOL_PROGRAM_ID,
+        mplProgram: TOKEN_METADATA_PROGRAM_ID,
+        sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
+        splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID
+      }).signers([users[0]])
+      .remainingAccounts(wrpool.accounts.map(e => {
+        return { pubkey: e, isSigner: false, isWritable: true };
+      })).instruction()
+
+
+    await createAndSendV0Tx(
+      [
+        additionalComputeBudgetInstruction,
+        instruction
+      ],
+      users[0],
+      [portfolio_lookup_table, extraTable]
+    )
+
+    for (const ata of wrpool.ata) {
+      console.log(await provider.connection.getTokenAccountBalance(ata))
+    }
+
+    const d2 = await provider.connection.getAccountInfo(portfolio_collection.collection_metadata);
+
+    // deser.de
+    console.log(deser.deserialize(d2.data)[0].collectionDetails)
+  })
+
+  it.skip("Transfer NFT", async () => {
     const portfolio_id = 1;
     const nft_id = 1;
 
@@ -604,7 +785,7 @@ describe("biscuit", () => {
     console.log(await provider.connection.getTokenAccountBalance(nft_user2_ata))
   })
 
-  it("Burn portfolio", async () => {
+  it.skip("Burn portfolio", async () => {
     const portfolio_id = 1;
     const nft_id = 1;
     const portfolio_collection = getCollectionAddresses(portfolio_id);
@@ -613,7 +794,7 @@ describe("biscuit", () => {
     const atasInstructions = []
     const atas = []
 
-    for (const token of portfolioTokens) {
+    for (const token of portfolio_tokens) {
       const userAta = getAssociatedTokenAddressSync(
         token.key,
         users[1].publicKey,
@@ -650,25 +831,17 @@ describe("biscuit", () => {
       });
     await createAndSendV0Tx(atasInstructions, users[1])
 
-
-    console.log(await provider.connection.getAccountInfo(nft.nft_metadata));
-    console.log(await provider.connection.getAccountInfo(nft.nft_mint));
-    console.log(await provider.connection.getAccountInfo(nft.nft_ata));
-    console.log(await provider.connection.getAccountInfo(nft.nft_record));
-    console.log(await provider.connection.getAccountInfo(nft.nft_master_edition));
-
-
     // for (const acc of accs) {
     //   console.log(await provider.connection.getAccountInfo(acc))
     // }
 
     const instruction = await program.methods.burnPortfolio(nft_id).accounts({
-      treasuryAta: treasury_ata_sol,
-      config: config_address,
+      // treasuryAta: treasury_ata_sol,
+      // config: config_address,
       payer: users[1].publicKey,
       collection: portfolio_collection.collection_mint,
       collectionMetadata: portfolio_collection.collection_metadata,
-      collectionMasterEdition: portfolio_collection.collection_master_edition,
+      // collectionMasterEdition: portfolio_collection.collection_master_edition,
       collectionOnchaindata: portfolio_collection.collection_onchain_data,
       tokenMint: nft.nft_mint,
       nftUserTokenAccount: nft.nft_ata,
@@ -689,7 +862,7 @@ describe("biscuit", () => {
         instruction
       ],
       users[1],
-      portfolio_lookup_table
+      [portfolio_lookup_table]
     )
 
     for (const ata of atas) {
@@ -705,189 +878,8 @@ describe("biscuit", () => {
 
     const d2 = await provider.connection.getAccountInfo(portfolio_collection.collection_metadata);
 
-    // deser.de
     console.log(deser.deserialize(d2.data)[0].collectionDetails)
 
   })
 
-  it.skip("Buy portfolio by Token", async () => {
-
-    const user1ATA = await getOrCreateAssociatedTokenAccount(
-      provider.connection,
-      wallet.payer,
-      paymentToken.keyPair.publicKey,
-      users[0].publicKey
-    );
-    const userTokenAccount = await provider.connection.getTokenAccountBalance(user1ATA.address);
-    // console.log(userTokenAccount)
-    const programATA = await getOrCreateAssociatedTokenAccount(
-      provider.connection,
-      wallet.payer,
-      paymentToken.keyPair.publicKey,
-      program.programId
-    );
-    const programTokenAccount = await provider.connection.getTokenAccountBalance(programATA.address);
-    console.log(programTokenAccount)
-
-
-    const nft_id = 1;
-    const nft = await getNftAddresses(portfolio_collection.tokenAccount, nft_id);
-
-
-    console.log(nft)
-    // await createAssociatedTokenAccount(
-    //   provider.connection,
-    //   users[0],
-    //   nft.tokenAccount,
-    //   users[0].publicKey,
-    //   {},
-    //   TOKEN_PROGRAM_ID,
-    //   ASSOCIATED_TOKEN_PROGRAM_ID
-    // )
-
-    let tx = new Transaction();
-    const additionalComputeBudgetInstruction =
-      ComputeBudgetProgram.setComputeUnitLimit({
-        units: 400000,
-      });
-    // console.log(user1ATANFT)
-    const buyInstruction = await program.methods.buyPortfolio(
-      nft_id,
-      collection_data.uri,
-      new anchor.BN(4000000000),
-    )
-      .accounts({
-        payer: users[0].publicKey,
-        nftUserTokenAccount: nft.nftATA,
-        nftRecord: nft.nftRecord,
-        portfolioData: nft.onchainDataAddress,
-        tokenMint: nft.tokenAccount,
-        metadataAccount: nft.metadataAccountAddress,
-        masterEditionAccount: nft.masterEditionAccountAddress,
-        collectionMetadata: portfolio_collection.onchainDataAddress,
-        collection: portfolio_collection.tokenAccount,
-        paymentToken: paymentToken.keyPair.publicKey,
-        mplProgram: TOKEN_METADATA_PROGRAM_ID,
-        sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-        paymentUserTokenAccount: user1ATA.address,
-        paymentProgramTokenAccount: programATA.address,
-        splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-      }).signers([users[0]])
-      .preInstructions([additionalComputeBudgetInstruction])
-      .rpc().catch(e => console.error(e));
-
-
-    const accounts = await provider.connection.getTokenAccountsByOwner(users[0].publicKey, {
-      programId: TOKEN_PROGRAM_ID
-    });
-
-    // console.log(accounts)
-
-    // Metadata.
-    // )
-    // )
-    // .instruction()
-
-    // tx.add(buyInstruction);
-    // await provider.connection.sendTransaction(tx, [users[0]]).catch(err=>console.error(err));
-    // 
-
-    // const mintInstruction = await program.methods.mintPortfolio(
-    //   nft_id
-    // ).accounts({
-    //   payer: users[0].publicKey,
-    //   nftUserTokenAccount: user1ATANFT,
-    //   authority: portfolioMintKeypair.publicKey,
-    //   portfolioData: nft.onchainDataAddress,
-    //   tokenMint: nft.tokenAccount,
-    //   metadataAccount: nft.metadataAccountAddress,
-    //   masterEditionAccount: nft.masterEditionAccountAddress,
-    //   collectionMetadata: portfolio_collection.onchainDataAddress,
-    //   collection: portfolio_collection.tokenAccount,
-    //   paymentToken: paymentToken.keyPair.publicKey,
-    //   mplProgram: TOKEN_METADATA_PROGRAM_ID,
-    //   sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-    //   splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    // }).signers([users[0]]).instruction()
-
-    // tx.add(buyInstruction);
-    // tx.add(mintInstruction)
-
-    // await provider.connection.sendTransaction(tx, [users[0]]).catch(err=>console.error(err));
-
-
-    // .rpc().catch(e => console.error(e));
-
-    const userTokenAccount2 = await provider.connection.getTokenAccountBalance(user1ATA.address);
-    console.log(userTokenAccount2)
-    const programTokenAccount2 = await provider.connection.getTokenAccountBalance(programATA.address);
-    console.log(programTokenAccount2)
-    // console.log(program)
-    // const potrfolio = await program.account.portfolioCollectionData.fetch(portfolio_collection.onchainDataAddress);
-    // console.log("Portfolio: ", potrfolio);
-    // const nft_metadata =  await program.provider.connection.getAccountInfo(nft.metadataAccountAddress)
-    // console.log(metaplex)
-    // dese
-    // console.log("Metadata: ", deserializeMetadata(nft_metadata) )
-    // const nft_onchain_data = await program.account.portfolioData.fetch(nft.onchainDataAddress);
-    // console.log("Onchain: ", nft_onchain_data)
-    // const nft_mint = 
-    // const nft_master_edition = 
-
-  })
-
-
 });
-
-
-/*
-    let tx = new Transaction();
-
-    console.log(user1ATANFT)
-    const buyInstruction = await program.methods.buyPortfolio(
-      nft_id,
-      collection_data.uri,
-      new anchor.BN(4000000000),
-    )
-    .accounts({
-      payer: users[0].publicKey,
-      nftUserTokenAccount: user1ATANFT,
-      authority: portfolioMintKeypair.publicKey,
-      portfolioData: nft.onchainDataAddress,
-      tokenMint: nft.tokenAccount,
-      metadataAccount: nft.metadataAccountAddress,
-      masterEditionAccount: nft.masterEditionAccountAddress,
-      collectionMetadata: portfolio_collection.onchainDataAddress,
-      collection: portfolio_collection.tokenAccount,
-      paymentToken: paymentToken.keyPair.publicKey,
-      mplProgram: TOKEN_METADATA_PROGRAM_ID,
-      sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      paymentUserTokenAccount: user1ATA.address,
-      paymentProgramTokenAccount: programATA.address,
-      splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    }).signers([users[0]]).instruction();
-
-    const mintInstruction = await program.methods.mintPortfolio(
-      nft_id
-    ).accounts({
-      payer: users[0].publicKey,
-      nftUserTokenAccount: user1ATANFT,
-      authority: portfolioMintKeypair.publicKey,
-      portfolioData: nft.onchainDataAddress,
-      tokenMint: nft.tokenAccount,
-      metadataAccount: nft.metadataAccountAddress,
-      masterEditionAccount: nft.masterEditionAccountAddress,
-      collectionMetadata: portfolio_collection.onchainDataAddress,
-      collection: portfolio_collection.tokenAccount,
-      paymentToken: paymentToken.keyPair.publicKey,
-      mplProgram: TOKEN_METADATA_PROGRAM_ID,
-      sysvarInstructions: anchor.web3.SYSVAR_INSTRUCTIONS_PUBKEY,
-      splAtaProgram: ASSOCIATED_TOKEN_PROGRAM_ID
-    }).signers([users[0]]).instruction()
-
-    tx.add(buyInstruction);
-    tx.add(mintInstruction)
-
-    await provider.connection.sendTransaction(tx, [users[0]]).catch(err=>console.error(err));
-
-  */

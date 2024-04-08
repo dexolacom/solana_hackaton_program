@@ -16,10 +16,10 @@ import { BN } from "bn.js";
 import fs from "fs";
 
 const tokenMint = new anchor.web3.PublicKey(
-    "ArUaz7YBGZ3Z5Ut1VNLLEuYV2P1dM9FWmwxf6XMxTbCy"
+    "BhKhpfHuHvcLtteqDidKrzAtCbjDMSu6P2PDF7vFCsSe"
 );
 const recepient =  new anchor.web3.PublicKey(
-    "8QdnKN4JbhpSLdhJVcCswmSy3X1Z3hmyZEG3VvGGNHn7"
+    "29CF7v31p7DfiRyXqYWi2pgqbYtAQYMGmDDcFu1BoiYP"
 );
 
 

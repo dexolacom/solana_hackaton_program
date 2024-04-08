@@ -1,10 +1,8 @@
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token::{ Mint, Token, TokenAccount, Transfer, transfer, close_account}};
-use mpl_token_metadata::{
-    accounts::Metadata, instructions::{ BurnV1Cpi, BurnV1CpiAccounts, BurnV1InstructionArgs}, types::{Collection, PrintSupply, TokenStandard}
-};
+use mpl_token_metadata::instructions:: {BurnV1Cpi, BurnV1CpiAccounts, BurnV1InstructionArgs};
 use crate::portfolio::PortfolioCollectionData;
-use whirlpool_cpi::{self};
+
 
 #[derive(Accounts)]
 #[instruction(_id: u8)]
@@ -52,6 +50,7 @@ pub struct BurnPortfolio<'info> {
     )]
     pub master_edition_account: UncheckedAccount<'info>,
 
+    /// TODO: add amount == 1
     /// CHECK: 
     #[account(mut, constraint = nft_user_token_account.owner == payer.key())]
     pub nft_user_token_account: Account<'info, TokenAccount>,
@@ -93,7 +92,7 @@ pub fn burn_portfolio<'c: 'info, 'info>(
         let nft_ata = dest_ata_accs[0+i*2].to_account_info();
         let user_ata = dest_ata_accs[1+i*2].to_account_info();
         
-        let mut acc = TokenAccount::try_deserialize(&mut &**nft_ata.try_borrow_data()?)?;
+        let acc = TokenAccount::try_deserialize(&mut &**nft_ata.try_borrow_data()?)?;
 
         let cpi_ctx = CpiContext::new_with_signer(
             ctx.accounts.token_program.to_account_info(),

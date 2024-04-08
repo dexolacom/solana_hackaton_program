@@ -5,16 +5,16 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-biscuit = "7Zrb5JhpFNgP3UYuvoXCV4JbevnwvQYsxDCmrZb7jDed"
+biscuit = "BxcGdnbRBXvxPcjSW2f7Gtc9iqPdGNZbf9Z5RqyXxpWM"
 
 [programs.devnet]
-biscuit = "7Zrb5JhpFNgP3UYuvoXCV4JbevnwvQYsxDCmrZb7jDed"
+biscuit = "BxcGdnbRBXvxPcjSW2f7Gtc9iqPdGNZbf9Z5RqyXxpWM"
 
 [registry]
 url = ""
 
 [provider]
-cluster = "localnet"
+cluster = "devnet"
 wallet = "/home/mykola_admin/.config/solana/id.json"
 
 [scripts]

@@ -8,7 +8,7 @@ const TOKEN_METADATA_PROGRAM_ID = new anchor.web3.PublicKey(
 );
 
 const BISCUIT_PROGRAM_ID = new anchor.web3.PublicKey(
-    "7Zrb5JhpFNgP3UYuvoXCV4JbevnwvQYsxDCmrZb7jDed"
+    "BxcGdnbRBXvxPcjSW2f7Gtc9iqPdGNZbf9Z5RqyXxpWM"
 )
 
 export function getNftAddresses(collection_mint: anchor.web3.PublicKey, nft_id: number, user_pubkey: anchor.web3.PublicKey) {

@@ -13,8 +13,6 @@ async function run() {
 
     const paymentToken = anchor.web3.Keypair.generate();
 
-    // console.log("Token keypair: " + paymentToken.publicKey.toString() + " .Token keypair private: " + paymentToken.secretKey.toString());
-
     const mint = await createMint(
         provider.connection,
         wallet.payer,

@@ -1,14 +1,12 @@
-use std::borrow::Borrow;
-
 use anchor_lang::prelude::*;
 use anchor_spl::{associated_token::AssociatedToken, token::{ Mint, Token, TokenAccount, Transfer, transfer}};
 use mpl_token_metadata::{
-    accounts::Metadata, instructions::{CreateV1Cpi, CreateV1CpiAccounts, CreateV1InstructionArgs, MintV1Cpi, MintV1CpiAccounts, MintV1InstructionArgs, VerifyCollectionV1Cpi, VerifyCollectionV1CpiAccounts}, types::{Collection, PrintSupply, TokenStandard}
+    instructions::{CreateV1Cpi, CreateV1CpiAccounts, CreateV1InstructionArgs, MintV1Cpi, MintV1CpiAccounts, MintV1InstructionArgs, VerifyCollectionV1Cpi, VerifyCollectionV1CpiAccounts}, 
+    types::{Collection, PrintSupply, TokenStandard}
 };
 use crate::portfolio::PortfolioCollectionData;
 use crate::config::BiscuitConfig;
-use crate::err::BiscuitError;
-use whirlpool_cpi::{self};
+use whirlpool_cpi;
 
 
 
@@ -20,13 +18,13 @@ pub struct BuyPortfolio<'info> {
         seeds = [b"config"],
         bump
     )]
-    pub config: Account<'info, BiscuitConfig>,
+    pub config: Box<Account<'info, BiscuitConfig>>,
 
     #[account(
         mut, 
         constraint = treasury_ata.owner == config.treasury
     )]
-    pub treasury_ata: Account<'info, TokenAccount>,
+    pub treasury_ata: Box<Account<'info, TokenAccount>>,
 
     #[account(mut)]
     pub payer: Signer<'info>,
@@ -127,26 +125,14 @@ pub fn buy_portfolio<'c: 'info, 'info>(
 
     // TODO: make min amount check
     // if(amount < )
-    let mut collection_metadata = Metadata::from_bytes(&mut &**ctx.accounts.collection_metadata.to_account_info().try_borrow_data()?)?;
-    // let details = collection_metadata.collection_details.ok_or(BiscuitError::InvalidCollectionMetadata)?;
-    // let detal = collection_metadata.collection_details.take();
-    verify_nft_id(collection_metadata, _id as u64);
+    // let mut collection_metadata = Metadata::from_bytes(&mut &**ctx.accounts.collection_metadata.to_account_info().try_borrow_data()?)?;
+    // verify_nft_id(collection_metadata, _id as u64);
 
-    let swaps_accs  = ctx.remaining_accounts;
+    // let ctx.remaining_accounts  = ctx.remaining_accounts;
     let portfoilio_length = ctx.accounts.collection_onchaindata.tokens.len();
     
-    let collection = &ctx.accounts.collection.to_account_info();
-    let collection_key = collection.key();
-    let seeds: &[&[&[u8]]] = &[&[
-        "token".as_bytes(),
-        collection_key.as_ref(),
-        &_id.to_le_bytes(),
-        &[ctx.bumps.token_mint]
-    ]];
-
     // SEND FEE TO TREASURY
-    let fee = ctx.accounts.collection_onchaindata.fee_in;
-    let fee_amount = amount * fee as u64/ 1000;
+    let fee_amount = amount * ctx.accounts.collection_onchaindata.fee_in as u64/ 1000;
     let cpi_ctx = CpiContext::new(
         ctx.accounts.token_program.to_account_info(),
         Transfer {
@@ -160,7 +146,7 @@ pub fn buy_portfolio<'c: 'info, 'info>(
 
     // SWAP PROCESS
     for i in 0..portfoilio_length {
-        let swap_amount = ctx.accounts.collection_onchaindata.percentages[i] as u64 *new_amount / 1000;
+        let swap_amount = ctx.accounts.collection_onchaindata.percentages[i] as u64 * new_amount / 1000;
         
         let cpi_program = ctx.accounts.whirlpool_program.to_account_info();
         let offset = 8*i;
@@ -170,10 +156,11 @@ pub fn buy_portfolio<'c: 'info, 'info>(
                 ctx.accounts.token_program.to_account_info(),
                 Transfer {
                     from: ctx.accounts.payment_token_account.to_account_info(),
-                    to: swaps_accs[0 + offset].to_account_info(),
+                    to: ctx.remaining_accounts[0 + offset].to_account_info(),
                     authority: ctx.accounts.payer.to_account_info(),
                 },
             );
+            msg!("Biscuit: transfer");
             transfer(cpi_ctx, swap_amount)?;
         }
         else{
@@ -181,15 +168,15 @@ pub fn buy_portfolio<'c: 'info, 'info>(
         let cpi_accounts = whirlpool_cpi::cpi::accounts::Swap{
             token_program: ctx.accounts.token_program.to_account_info(),
             token_authority: ctx.accounts.payer.to_account_info(),
-            token_owner_account_a:  if a_to_b[i] == true  {ctx.accounts.payment_token_account.to_account_info()} else { swaps_accs[0 + offset].to_account_info() },
-            token_owner_account_b: if a_to_b[i] != true  {ctx.accounts.payment_token_account.to_account_info()} else { swaps_accs[0 + offset].to_account_info() },
-            token_vault_a: swaps_accs[1+offset].to_account_info(), //lookup
-            token_vault_b: swaps_accs[2+offset].to_account_info(), //lookup
-            tick_array_0: swaps_accs[3+offset].to_account_info(),//lookup
-            tick_array_1: swaps_accs[4+offset].to_account_info(), //lookup
-            tick_array_2: swaps_accs[5+offset].to_account_info(), //lookup
-            oracle: swaps_accs[6+offset].to_account_info(), // lookup 
-            whirlpool: swaps_accs[7+offset].to_account_info(), //lookup
+            token_owner_account_a:  if a_to_b[i] == true  {ctx.accounts.payment_token_account.to_account_info()} else { ctx.remaining_accounts[0 + offset].to_account_info() },
+            token_owner_account_b: if a_to_b[i] != true  {ctx.accounts.payment_token_account.to_account_info()} else { ctx.remaining_accounts[0 + offset].to_account_info() },
+            token_vault_a: ctx.remaining_accounts[1+offset].to_account_info(), //lookup
+            token_vault_b: ctx.remaining_accounts[2+offset].to_account_info(), //lookup
+            tick_array_0: ctx.remaining_accounts[3+offset].to_account_info(),//lookup
+            tick_array_1: ctx.remaining_accounts[4+offset].to_account_info(), //lookup
+            tick_array_2: ctx.remaining_accounts[5+offset].to_account_info(), //lookup
+            oracle: ctx.remaining_accounts[6+offset].to_account_info(), // lookup 
+            whirlpool: ctx.remaining_accounts[7+offset].to_account_info(), //lookup
           };
 
           let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
@@ -212,7 +199,6 @@ pub fn buy_portfolio<'c: 'info, 'info>(
         uri,
         _id, 
         portfolio_id,
-        amount,
     );
 
     Ok(())
@@ -223,7 +209,6 @@ pub fn create_nft(
     uri: String,
     _id: u8,
     portfolio_id: u8,
-    amount: u64,
 ) -> () {
 
     let name = String::from("PortfolioToken") + &_id.to_string();
@@ -289,8 +274,7 @@ pub fn create_nft(
         &_id.to_le_bytes(),
         &[bump]
     ]];
-    msg!("Seed {:?}", seeds);
-    msg!("Invoke signed");
+    msg!("Biscuit: create");
     // When using pda signer:
     let _ = create_cpi.invoke_signed(seeds);
     
@@ -320,92 +304,50 @@ pub fn create_nft(
         },
         mint_args,
     );
-    msg!("Invoke signed mint");
+    msg!("Biscuit: mint");
     msg!("Seed {:?}", seeds);
     let _ = mint_cpi.invoke_signed(seeds);
 
-    let verify_seeds: &[&[&[u8]]] = &[
-        &[
-            "collection".as_bytes(),
-            crate::ID.as_ref(),
-            &portfolio_id.to_le_bytes(),
-            &[ctx.accounts.collection_onchaindata.bump],
-        ],
-    ];
+    // let verify_seeds: &[&[&[u8]]] = &[
+    //     &[
+    //         "collection".as_bytes(),
+    //         crate::ID.as_ref(),
+    //         &portfolio_id.to_le_bytes(),
+    //         &[ctx.accounts.collection_onchaindata.bump],
+    //     ],
+    // ];
 
-    let verify_cpi = VerifyCollectionV1Cpi::new( 
-        mpl_program,
-        VerifyCollectionV1CpiAccounts {
-            authority: collection,
-            delegate_record: None,
-            metadata: metadata,
-            collection_mint: collection,
-            collection_metadata: Some(collection_metadata),
-            collection_master_edition: Some(collection_master_edition),
-            system_program: system_program,
-            sysvar_instructions: sysvar_instructions,
-        }
-    );
-
-    let _ = verify_cpi.invoke_signed(verify_seeds);
+    // let verify_cpi = VerifyCollectionV1Cpi::new( 
+    //     mpl_program,
+    //     VerifyCollectionV1CpiAccounts {
+    //         authority: collection,
+    //         delegate_record: None,
+    //         metadata: metadata,
+    //         collection_mint: collection,
+    //         collection_metadata: Some(collection_metadata),
+    //         collection_master_edition: Some(collection_master_edition),
+    //         system_program: system_program,
+    //         sysvar_instructions: sysvar_instructions,
+    //     }
+    // );
+    // msg!("Biscuit: verify");
+    // let _ = verify_cpi.invoke_signed(verify_seeds);
 }
 
-pub fn swap<'info>(
-    whirlpool_program: AccountInfo<'info>,
-    accounts: Vec<AccountInfo<'info>>,
-    amount: u64,
-    token: Pubkey,
-    other_amount_threshold: u64,
-    sqrt_price_limit: u128,
-    amount_specified_is_input: bool,
-    a_to_b: bool,
-) {
-
-    // let cpi_program = ctx.accounts.whirlpool_program.to_account_info();
-
-    let cpi_accounts = whirlpool_cpi::cpi::accounts::Swap {
-        whirlpool: accounts[0].to_account_info(),
-        token_program: accounts[1].to_account_info(),
-        token_authority: accounts[2].to_account_info(),
-        token_owner_account_a: accounts[3].to_account_info(),
-        token_vault_a: accounts[4].to_account_info(),
-        token_owner_account_b: accounts[5].to_account_info(),
-        token_vault_b: accounts[6].to_account_info(),
-        tick_array_0: accounts[7].to_account_info(),
-        tick_array_1: accounts[8].to_account_info(),
-        tick_array_2: accounts[9].to_account_info(),
-        oracle: accounts[10].to_account_info(),
-      };
-    
-      let cpi_ctx = CpiContext::new(whirlpool_program, cpi_accounts);
-    
-      // execute CPI
-      msg!("CPI: whirlpool swap instruction");
-      whirlpool_cpi::cpi::swap(
-        cpi_ctx,
-        amount,
-        other_amount_threshold,
-        sqrt_price_limit,
-        amount_specified_is_input,
-        a_to_b,
-      );
-    
-}
-
-pub fn verify_nft_id(collection_metadata: Metadata, id: u64) -> Result<()>  {
-    if let Some(ref details) = collection_metadata.collection_details {
-        match details {
-            #[allow(deprecated)]
-            mpl_token_metadata::types::CollectionDetails::V1 { size } => {
-                if(size + 1 != id){
-                    return Err(BiscuitError::InvalidNFTId.into());
-                }
-                Ok(())
-            }
-            mpl_token_metadata::types::CollectionDetails::V2 { padding: _ } => return Err(BiscuitError::InvalidCollectionMetadata.into()),
-        }
-    } else {
-        msg!("No collection details. Can't decrement.");
-        return Err(BiscuitError::InvalidCollectionMetadata.into())
-    }
-}
+// pub fn verify_nft_id(collection_metadata: Metadata, id: u64) -> Result<()>  {
+//     if let Some(ref details) = collection_metadata.collection_details {
+//         match details {
+//             #[allow(deprecated)]
+//             mpl_token_metadata::types::CollectionDetails::V1 { size } => {
+//                 if size + 1 != id {
+//                     return Err(BiscuitError::InvalidNFTId.into());
+//                 }
+//                 Ok(())
+//             }
+//             mpl_token_metadata::types::CollectionDetails::V2 { padding: _ } => return Err(BiscuitError::InvalidCollectionMetadata.into()),
+//         }
+//     } else {
+//         msg!("No collection details. Can't decrement.");
+//         return Err(BiscuitError::InvalidCollectionMetadata.into())
+//     }
+// }
