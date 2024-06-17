@@ -5,16 +5,16 @@ seeds = false
 skip-lint = false
 
 [programs.localnet]
-biscuit = "BxcGdnbRBXvxPcjSW2f7Gtc9iqPdGNZbf9Z5RqyXxpWM"
+biscuit = "5R81ubNGkaFJbCjBWpjsySV55FVRdqZPioDiaEMEUkPe"
 
 [programs.devnet]
-biscuit = "BxcGdnbRBXvxPcjSW2f7Gtc9iqPdGNZbf9Z5RqyXxpWM"
+biscuit = "5R81ubNGkaFJbCjBWpjsySV55FVRdqZPioDiaEMEUkPe"
 
 [registry]
 url = ""
 
 [provider]
-cluster = "devnet"
+cluster = "localnet"
 wallet = "/home/mykola_admin/.config/solana/id.json"
 
 [scripts]
@@ -35,96 +35,4 @@ filename = "dumps/whirlpool_config.json"
 [[test.validator.account]]
 address = "BGnhGXT9CCt5WYS23zg9sqsAT2MGXkq7VSwch9pML82W"
 filename = "dumps/wpool_fee_tier_128.json"
-
-# TOKENS MINTS
-
-[[test.validator.account]]
-address = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-filename = "dumps/usdc_mint.json"
-
-[[test.validator.account]]
-address = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
-filename = "dumps/usdt_mint.json"
-
-[[test.validator.account]]
-address = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
-filename = "dumps/jup_mint.json"
-
-# SOL_USDC POOL
-
-[[test.validator.account]]
-address = "83v8iPyZihDEjDdY8RdZddyZNyUtXngz69Lgo9Kt5d6d"
-filename = "dumps/pools/sol_usdc/pool.json"
-
-[[test.validator.account]]
-address = "D3CDPQLoa9jY1LXCkpUqd3JQDWz8DX1LDE1dhmJt9fq4"
-filename = "dumps/pools/sol_usdc/vault_a.json"
-
-[[test.validator.account]]
-address = "dwxR9YF7WwnJJu7bPC4UNcWFpcSsooH6fxbpoa3fTbJ"
-filename = "dumps/pools/sol_usdc/vault_b.json"
-
-[[test.validator.account]]
-address = "7cjHDHzhte1kNmdhbUY1ewJA39q3DVbn4FjZiMS4sWyP"
-filename = "dumps/pools/sol_usdc/tick_0.json"
-
-[[test.validator.account]]
-address = "E9NSFErnAxYDQUeCDSTK9Z2qc8BjPQZanksKnvkPJGi"
-filename = "dumps/pools/sol_usdc/tick_1.json"
-
-[[test.validator.account]]
-address = "3zAMsiiWdXqqhLGMFNSkF91Mc3GfVBLJjQbUf2ozTDwe"
-filename = "dumps/pools/sol_usdc/tick_2.json"
-
-# SOL_USDT POOL
-
-[[test.validator.account]]
-address = "FwewVm8u6tFPGewAyHmWAqad9hmF7mvqxK4mJ7iNqqGC"
-filename = "dumps/pools/sol_usdt/pool.json"
-
-[[test.validator.account]]
-address = "BFAWVmF5aoALggQ9Y2RpTijpYKRESxcdNe6JDNZEpoxC"
-filename = "dumps/pools/sol_usdt/vault_a.json"
-
-[[test.validator.account]]
-address = "B1qD7GDsKN4kz2ehks71eEpVhUzqaTVXaWfCxXykRAA9"
-filename = "dumps/pools/sol_usdt/vault_b.json"
-
-[[test.validator.account]]
-address = "ANm2gks4cAj5kBqsYEsni9BSFh65Treaoar4Bb3TLGR1"
-filename = "dumps/pools/sol_usdt/tick_0.json"
-
-[[test.validator.account]]
-address = "EvtnxKsBGgApftJ5SeW9rPmUZYatsLmcHAjkbScPuWgT"
-filename = "dumps/pools/sol_usdt/tick_1.json"
-
-[[test.validator.account]]
-address = "4kwToWgqFxHzJTtmEmyms5x4bV2hm7PRkogvA8BE83i3"
-filename = "dumps/pools/sol_usdt/tick_2.json"
-
-# JUP_SOL POOL
-
-[[test.validator.account]]
-address = "DkVN7RKTNjSSER5oyurf3vddQU2ZneSCYwXvpErvTCFA"
-filename = "dumps/pools/jup_sol/pool.json"
-
-[[test.validator.account]]
-address = "HRBd7gkQbhpTuXA61a7ii3Bbmcvp6ZCNwne28aC8A8Qq"
-filename = "dumps/pools/jup_sol/vault_a.json"
-
-[[test.validator.account]]
-address = "EsU4fjzg2JSSgqbh3jx95qaDSpRe4gLqPWQLbmLjYaLF"
-filename = "dumps/pools/jup_sol/vault_b.json"
-
-[[test.validator.account]]
-address = "3Tf4H9u6hygaziVQvtawkACN1YAHtZKg8bZZ8shLGDkn"
-filename = "dumps/pools/jup_sol/tick_0.json"
-
-[[test.validator.account]]
-address = "BhKm7uXaAkyz269YyuhwCH9qWR5ZP2qYedBWFfJJ1MCd"
-filename = "dumps/pools/jup_sol/tick_1.json"
-
-[[test.validator.account]]
-address = "3BKdwao1R7yb4Q1SCPSAWz3TM7ejF1ijySPhK3kt45GU"
-filename = "dumps/pools/jup_sol/tick_2.json"
 

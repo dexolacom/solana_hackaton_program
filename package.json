@@ -11,7 +11,7 @@
         "@orca-so/sdk": "^1.2.26",
         "@orca-so/whirlpool-sdk": "^0.4.2",
         "@orca-so/whirlpools-sdk": "^0.12.5",
-        "@solana/spl-token": "^0.4.1",
+        "@solana/spl-token": "^0.4.6",
         "@solana/web3.js": "^1.91.1",
         "decimal.js": "^10.4.3",
         "dotenv": "^16.4.5",
