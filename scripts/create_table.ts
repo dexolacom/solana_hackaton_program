@@ -75,10 +75,27 @@ async function run() {
         treasury_portfolio_token_accounts.push(acc);
     }
 
+    const config = PublicKey.findProgramAddressSync(
+        [
+            Buffer.from("config"),
+        ],
+        program.programId
+    )[0];
+    
+    const vault = PublicKey.findProgramAddressSync(
+        [
+            Buffer.from("vault"),
+        ],
+        program.programId
+    )[0];
+
     const accs = [
         ...collections_accs,
         ...whirlpool_accs,
         ...TOKENS.map(e => new PublicKey(e.key)),
+        wallet.publicKey,
+        config,
+        vault,
         ...treasury_portfolio_token_accounts
     ];
 

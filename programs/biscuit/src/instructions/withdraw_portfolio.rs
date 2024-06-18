@@ -106,6 +106,17 @@ pub struct WithdrawPortfolio<'info> {
     /// CHECK: checked in CPI
     pub sysvar_instructions: UncheckedAccount<'info>,
     pub rent: Sysvar<'info, Rent>,
+
+    // Remaining accounts:
+    // if burn_model == Raw
+    // 1. portfolio token account
+    // 2. user token account
+    // 3. treasury token account
+    // count = count of tokens in collection
+    // if burn_model == Swap
+    // 1. portfolio payment token account
+    // 2. user payment token account
+    // 3. treasury payment token account
 }
 
 pub fn withdraw_portfolio<'c: 'info, 'info>(

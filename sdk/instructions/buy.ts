@@ -1,6 +1,6 @@
 import { Program } from "@coral-xyz/anchor";
 import { Biscuit } from "../artifacts";
-import { PublicKey, SYSVAR_INSTRUCTIONS_PUBKEY, AccountMeta } from "@solana/web3.js";
+import { PublicKey, SYSVAR_INSTRUCTIONS_PUBKEY } from "@solana/web3.js";
 import { BISCUIT_CONFIG, BISCUIT_VAULT, TOKEN_METADATA_PROGRAM_ID  } from "../constants";
 import { getPortfolioCollectionAddresses } from "../collection";
 import { getPortfolioAddresses } from "../portfolio";
@@ -76,8 +76,8 @@ export function getBuyPortfolioInstruction(
         vaultAccount: vaultAccount,
         treasuryAccount: treasury_ata_payment_token,
         collection: portfolio_collection.collection,
-        collectionMetadata: portfolio_collection.metadata,
-        collectionMasterEdition: portfolio_collection.masterEdition,
+        // collectionMetadata: portfolio_collection.metadata,
+        // collectionMasterEdition: portfolio_collection.masterEdition,
         collectionOnchaindata: portfolio_collection.collectionOnchaindata,
         mint: portfolio.mint,
         metadata: portfolio.metadata,

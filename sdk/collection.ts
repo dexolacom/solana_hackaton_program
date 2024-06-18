@@ -4,7 +4,7 @@ import {Program} from "@project-serum/anchor";
 import { Biscuit } from "./artifacts";
 
 export function getPortfolioCollectionAddresses(
-  portfolio_id: number,
+  collection_id: number,
   BISCUIT_PROGRAM = BISCUIT_PROGRAM_ID,
   TOKEN_METADATA_PROGRAM = TOKEN_METADATA_PROGRAM_ID
 ) {
@@ -12,7 +12,7 @@ export function getPortfolioCollectionAddresses(
       [
         Buffer.from("collection"),
         BISCUIT_PROGRAM.toBuffer(),
-        Buffer.from([portfolio_id])
+        Buffer.from([collection_id])
       ],
       BISCUIT_PROGRAM
     )[0]

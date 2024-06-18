@@ -92,20 +92,24 @@ export async function createTable(provider: anchor.AnchorProvider, accounts: Pub
 
   await createAndSendV0Tx(provider, [lookupTableInst], signer);
 
+  await extendLookupTable(provider, lookupTableAddress, accounts, signer);
+  return lookupTableAddress;
+}
+
+export async function extendLookupTable(provider: anchor.AnchorProvider, table_address: PublicKey, accounts: PublicKey[], signer: Signer) {
   const size = 20;
   for (let i = 0; i < accounts.length; i += size) {
     const sub = accounts.slice(i, i + size)
     const extendInstruction = anchor.web3.AddressLookupTableProgram.extendLookupTable({
       payer: signer.publicKey,
       authority: signer.publicKey,
-      lookupTable: lookupTableAddress,
+      lookupTable: table_address,
       addresses: [
         ...sub,
       ]
     });
 
     await createAndSendV0Tx(provider, [extendInstruction], signer);
-    console.log("Table created.")
+    console.log("Table extended.")
   }
-  return lookupTableAddress;
 }

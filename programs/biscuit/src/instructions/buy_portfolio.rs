@@ -3,13 +3,14 @@ use anchor_spl::{
     associated_token::{self, AssociatedToken},
     token::{ Mint, Token, TokenAccount, Transfer, transfer}};
 use mpl_token_metadata::{
-    instructions::{CreateV1Cpi, CreateV1CpiAccounts, CreateV1InstructionArgs, MintV1Cpi, MintV1CpiAccounts, MintV1InstructionArgs, VerifyCollectionV1Cpi, VerifyCollectionV1CpiAccounts}, 
+    instructions::{CreateV1Cpi, CreateV1CpiAccounts, CreateV1InstructionArgs, MintV1Cpi, MintV1CpiAccounts, MintV1InstructionArgs}, 
     types::{Collection, PrintSupply, TokenStandard}
 };
 use crate::{
+    ID,
     state::{
         config::{BiscuitConfig, BiscuitVault, FEE_PRECISION}, mpl::MplMetadata, portfolio::{BurnParameters, Portfolio, PortfolioCollection, PortfolioState}
-    }, ID 
+    }, 
 };
 
 #[derive(Accounts)]
@@ -47,24 +48,6 @@ pub struct BuyPortfolio<'info> {
         bump
     )]
     pub collection: Box<Account<'info, Mint>>,
-
-    /// CHECK: checked in CPI
-    #[account(
-        mut,
-        seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), collection.key().as_ref()],
-        seeds::program = mpl_token_metadata::ID,
-        bump,
-    )]
-    pub collection_metadata: UncheckedAccount<'info>,
-
-    /// CHECK: checked in CPI
-    #[account(
-        mut,
-        seeds = [b"metadata", mpl_token_metadata::ID.as_ref(), collection.key().as_ref(), b"edition"],
-        seeds::program = mpl_token_metadata::ID,
-        bump,
-    )]
-    pub collection_master_edition: UncheckedAccount<'info>,
 
     #[account(
         mut,
@@ -153,11 +136,6 @@ pub fn buy_portfolio<'c: 'info, 'info>(
     amount: u64,
 ) -> Result<()> {
 
-    // TODO: make min amount check
-    // if(amount < )
-    // let mut collection_metadata = Metadata::from_bytes(&mut &**ctx.accounts.collection_metadata.to_account_info().try_borrow_data()?)?;
-    // verify_nft_id(collection_metadata, _id as u64);
-
     // SEND FEE TO TREASURY
     let fee_amount = amount * ctx.accounts.collection_onchaindata.fee_in as u64/ FEE_PRECISION;
     let cpi_ctx = CpiContext::new(
@@ -215,8 +193,6 @@ pub fn buy_portfolio<'c: 'info, 'info>(
     let master_edition = &ctx.accounts.master_edition.to_account_info();
     let mpl_program = &ctx.accounts.mpl_program.to_account_info();
     let collection = &ctx.accounts.collection.to_account_info();
-    let collection_metadata = &ctx.accounts.collection_metadata.to_account_info();
-    let collection_master_edition = &ctx.accounts.collection_master_edition.to_account_info();
     let collection_key = collection.key();
     let nft_ata = &ctx.accounts.vault_account.to_account_info();
     let nft_record = &ctx.accounts.record.to_account_info();
@@ -318,81 +294,5 @@ pub fn buy_portfolio<'c: 'info, 'info>(
     msg!("Biscuit: mint portfolio token");
     let _ = mint_cpi.invoke_signed(seeds);
 
-    let verify_seeds: &[&[&[u8]]] = &[
-        &[
-            "collection".as_bytes(),
-            crate::ID.as_ref(),
-            &_portfolio_id.to_le_bytes(),
-            &[ctx.accounts.collection_onchaindata.bump],
-        ],
-    ];
-
-    let verify_cpi = VerifyCollectionV1Cpi::new( 
-        mpl_program,
-        VerifyCollectionV1CpiAccounts {
-            authority: collection,
-            delegate_record: None,
-            metadata: metadata,
-            collection_mint: collection,
-            collection_metadata: Some(collection_metadata),
-            collection_master_edition: Some(collection_master_edition),
-            system_program: system_program,
-            sysvar_instructions: sysvar_instructions,
-        }
-    );
-    msg!("Biscuit: verify portfolio collection");
-    let _ = verify_cpi.invoke_signed(verify_seeds);
-
-    // let remainging_accounts_length = ctx.remaining_accounts.len();
-    // let tokens_length = ctx.accounts.collection_onchaindata.tokens.len();
-    // if remainging_accounts_length / 2 != tokens_length {
-    //     return Err(BiscuitError::DataLengthMissmatch.into());
-    // }
-
-    // for i in 0..tokens_length {
-    //     let mint = ctx.remaining_accounts[i * 2].to_account_info();
-    //     let ata = ctx.remaining_accounts[(i * 2) + 1].to_account_info();
-
-    //     let expected_token = ctx.accounts.collection_onchaindata.tokens[i];
-
-    //     if mint.key() != expected_token {
-    //         return Err(BiscuitError::InvalidNFTTokenAccount.into());
-    //     }
-
-    //     if expected_token != ctx.accounts.payment_token.key() {
-    //         msg!("Biscuit: Creating portfolio {} associated token account", expected_token);
-    //         // Create the associated token account
-    //         let _ = associated_token::create(CpiContext::new(
-    //             ctx.accounts.spl_ata_program.to_account_info(),
-    //             associated_token::Create {
-    //                 payer: ctx.accounts.payer.to_account_info(),
-    //                 associated_token: ata.to_account_info(),
-    //                 authority: ctx.accounts.mint.to_account_info(),
-    //                 mint: mint.to_account_info(),
-    //                 system_program: ctx.accounts.system_program.to_account_info(),
-    //                 token_program: ctx.accounts.token_program.to_account_info(),
-    //             },
-    //         ));
-    //     }
-    // }
-
     Ok(())
 }
-
-// pub fn verify_nft_id(collection_metadata: Metadata, id: u64) -> Result<()>  {
-//     if let Some(ref details) = collection_metadata.collection_details {
-//         match details {
-//             #[allow(deprecated)]
-//             mpl_token_metadata::types::CollectionDetails::V1 { size } => {
-//                 if size + 1 != id {
-//                     return Err(BiscuitError::InvalidNFTId.into());
-//                 }
-//                 Ok(())
-//             }
-//             mpl_token_metadata::types::CollectionDetails::V2 { padding: _ } => return Err(BiscuitError::InvalidCollectionMetadata.into()),
-//         }
-//     } else {
-//         msg!("No collection details. Can't decrement.");
-//         return Err(BiscuitError::InvalidCollectionMetadata.into())
-//     }
-// }

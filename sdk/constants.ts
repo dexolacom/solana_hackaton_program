@@ -12,7 +12,7 @@ export const TOKEN_METADATA_PROGRAM_ID = new PublicKey(
 );
 
 export const BISCUIT_PROGRAM_ID = new PublicKey(
-    "5R81ubNGkaFJbCjBWpjsySV55FVRdqZPioDiaEMEUkPe"
+    "AguvXyhZXA9WMXfezVHCnz9rjGDPRrDY6FdMcmgSaaKN"
 );
 
 export const TREASURY = new PublicKey(

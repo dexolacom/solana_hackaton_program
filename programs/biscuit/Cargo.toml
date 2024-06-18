@@ -19,5 +19,8 @@ default = []
 anchor-lang = "0.29.0"
 anchor-spl = "0.29.0"
 mpl-token-metadata = "4.1.2"
-solana-program = "=1.17.29"
+solana-program = "=1.17.34"
 whirlpool-cpi = { git = "https://github.com/orca-so/whirlpool-cpi", branch = "anchor/0.29.0" }
+
+bincode = "1"
+default-boxed = "0.2.0"
