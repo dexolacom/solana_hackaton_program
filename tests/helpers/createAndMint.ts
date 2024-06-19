@@ -7,7 +7,9 @@ export async function createAndMintToken(connection: anchor.web3.Connection, wal
     const token_mint = mint? mint : anchor.web3.Keypair.generate();
 
     await createMint(connection, wallet, wallet.publicKey, wallet.publicKey, decimals, token_mint, {}, TOKEN_PROGRAM_ID)
-    console.log('Create token mint');
+    const tokenSupply = await connection.getTokenSupply(token_mint.publicKey);
+
+    console.log('Create token mint. Mint: ' + token_mint.publicKey.toBase58());
     await mintTokens(connection, wallet, token_mint.publicKey, amount, recipients);
     return token_mint;
 }

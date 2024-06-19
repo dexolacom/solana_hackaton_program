@@ -1,213 +1,75 @@
 
 import 'dotenv/config'
 import * as anchor from "@coral-xyz/anchor";
-import {
-    ORCA_WHIRLPOOL_PROGRAM_ID, ORCA_WHIRLPOOLS_CONFIG,
-    PDAUtil, SwapUtils,
-    WhirlpoolContext, buildWhirlpoolClient, TickUtil, PriceMath, swapQuoteByInputToken,
-    toTx,
-    TickArrayUtil,
-    PoolUtil,
-    increaseLiquidityQuoteByInputTokenUsingPriceSlippage,
-    WhirlpoolClient,
-} from "@orca-so/whirlpools-sdk";
-
-import Decimal from "decimal.js";
-import { MathUtil, PDA, Percentage, TransactionBuilder } from "@orca-so/common-sdk";
-import { increaseLiquidityIx, initTickArrayIx, openPositionIx, openPositionWithMetadataIx, swapIx } from "@orca-so/whirlpools-sdk/dist/instructions";
-import { token } from "@coral-xyz/anchor/dist/cjs/utils";
-import { DecimalUtil } from "@orca-so/whirlpool-sdk";
+import fs from "fs/promises";
+import { createTestPool } from "./helpers/createPool";
+import TOKENS from "../assets/tokens.json";
 import { PublicKey } from '@solana/web3.js';
 
-const ORCA_WHIRLPOOLS_CONFIG_DEVNET = new PublicKey('FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR')
+const ORCA_WHIRLPOOLS_CONFIG_DEVNET = new PublicKey('FcrweFY1G9HJAHG5inkGB6pKg1HZ6x9UC2WioAfWrGkR');
 
-const USDC = new PublicKey("BhKhpfHuHvcLtteqDidKrzAtCbjDMSu6P2PDF7vFCsSe");
-const SOL = new PublicKey("So11111111111111111111111111111111111111112")
+const tokens_for_pool = [
+    // 'BTC',
+    'SOL',
+    // 'ETH',
+    // 'JUP',
+    // 'RNDR',
+    // 'HNT',
+    // 'BONK',
+    // 'PYTH',
+    // 'RAY',
+    // 'JTO',
+    // 'WIF'    
+]
 
 async function run() {
     const provider = anchor.AnchorProvider.env();
     const wallet = provider.wallet as anchor.Wallet;
-    const whirlpool_ctx = WhirlpoolContext.withProvider(provider, ORCA_WHIRLPOOL_PROGRAM_ID);
-    const client = buildWhirlpoolClient(whirlpool_ctx)
 
-    const price = 67476.24;
-    const lowerPrice = new Decimal(65476);
-    const upperPrice = new Decimal(69476);
-    const decimalA = 6;
-    const decimalB = 6;
-    const tokenA = new PublicKey("4z5zhHoGTV1zmjgSfMJKcFHBvxRY5XMheFopNPm5mszJ");
-    const tokenB = USDC;
-
-    const poolInitInfo = {
-        initSqrtPrice: PriceMath.priceToSqrtPriceX64(new Decimal(price), decimalA, decimalB),
-        tickSpacing: 128,
-        whirlpoolsConfig: ORCA_WHIRLPOOLS_CONFIG_DEVNET,
-        tokenMintA: tokenA,
-        tokenMintB: tokenB,
+    const payment_token = TOKENS.find(t => t.symbol === "USDC");
+    if (!payment_token) {
+        throw new Error("USDC not found in tokens.json");
     }
 
-    const pool = await createPool(whirlpool_ctx, client, poolInitInfo, wallet.publicKey);
-
-    const position = await openPositionWithLiq(whirlpool_ctx, client, pool, wallet.publicKey, lowerPrice, upperPrice, tokenB, new Decimal(50), true);
-    await initalizeTicksArrays(whirlpool_ctx, client, pool, position, tokenA.toBase58() === USDC.toBase58(), wallet.publicKey);
-}
-
-
-async function createPool(ctx: WhirlpoolContext, client: WhirlpoolClient, poolInitInfo: any, signerPub: anchor.web3.PublicKey) {
-
-    const initalTick = TickUtil.getInitializableTickIndex(
-        PriceMath.sqrtPriceX64ToTickIndex(poolInitInfo.initSqrtPrice),
-        poolInitInfo.tickSpacing
-    );
-
-    const { poolKey: actualPubkey, tx } = await client.createPool(
-        poolInitInfo.whirlpoolsConfig,
-        poolInitInfo.tokenMintA,
-        poolInitInfo.tokenMintB,
-        poolInitInfo.tickSpacing,
-        initalTick,
-        ctx.wallet.publicKey
-    );
-
-    console.log("Start create pool.")
-    const t_create = await tx.buildAndExecute().catch(err => { console.error(err); throw new Error(err) });
-    console.log("Pool created. Address: " + actualPubkey.toBase58());
-    return actualPubkey;
-}
-
-
-async function openPositionWithLiq(
-    ctx: WhirlpoolContext, client: WhirlpoolClient,
-    poolAddress: PublicKey, signerPub: anchor.web3.PublicKey,
-    lowerPrice: Decimal, upperPrice: Decimal,
-    inputTokenMint: PublicKey, tokenAmount: Decimal,
-    execute = false
-) {
-    const pool = await client.getPool(poolAddress);
-
-    // Verify token mint info is correct
-    const tokenAInfo = pool.getTokenAInfo();
-    const tokenBInfo = pool.getTokenBInfo();
-
-    // Open a position with no tick arrays initialized.
-
-    const poolData = pool.getData();
-    const tokenADecimal = tokenAInfo.decimals;
-    const tokenBDecimal = tokenBInfo.decimals;
-
-    const tickLower = TickUtil.getInitializableTickIndex(
-        PriceMath.priceToTickIndex(lowerPrice, tokenADecimal, tokenBDecimal),
-        poolData.tickSpacing
-    );
-    const tickUpper = TickUtil.getInitializableTickIndex(
-        PriceMath.priceToTickIndex(upperPrice, tokenADecimal, tokenBDecimal),
-        poolData.tickSpacing
-    );
-    // console.log(poolData)
-    const quote = increaseLiquidityQuoteByInputTokenUsingPriceSlippage(
-        inputTokenMint,
-        tokenAmount,
-        tickLower,
-        tickUpper,
-        Percentage.fromFraction(1, 100),
-        pool
-    )
-
-    
-    console.log(`LIQUIDITY: ${quote.liquidityAmount.toString()}.`)
-    console.log(`QUOTE EST: ${quote.tokenEstA.toString()}  - ${quote.tokenEstB.toString()}.`)
-    console.log(`QUOTE MAX: ${quote.tokenMaxA.toString()}  - ${quote.tokenMaxB.toString()}.`)
-
-    // [Action] Open Position (and increase L)
-    const { positionMint, tx: openIx } = await pool.openPosition(
-        tickLower,
-        tickUpper,
-        quote,
-        signerPub,
-        signerPub
-    );
-
-    if(execute){
-        console.log("Start open position. Position mint: " + positionMint.toBase58());
-        await openIx.buildAndExecute().catch(err => { console.error(err); throw new Error(err) });
-        console.log("Position succesful created");
-    }
-    return positionMint;
-}
-
-async function initalizeTicksArrays(ctx: WhirlpoolContext, client: WhirlpoolClient, poolAddress: PublicKey, positionMint: PublicKey, aTob: boolean, signerPub: anchor.web3.PublicKey) {
-    const pool = await client.getPool(poolAddress);
-    const poolData = pool.getData();
-    // Verify position exists and numbers fit input parameters
-    const lowerPrice = new Decimal(0.002);
-    const upperPrice = new Decimal(0.003);
-    const tokenAInfo = pool.getTokenAInfo();
-    const tokenBInfo = pool.getTokenBInfo();
-    const positionAddress = PDAUtil.getPosition(ORCA_WHIRLPOOL_PROGRAM_ID, positionMint).publicKey;
-
-    const position = await client.getPosition(positionAddress, { maxAge: 0 });
-    const positionData = position.getData();
-
-    const tickLowerIndex = TickUtil.getInitializableTickIndex(
-        PriceMath.priceToTickIndex(lowerPrice, tokenAInfo.decimals, tokenBInfo.decimals),
-        poolData.tickSpacing
-    );
-    const tickUpperIndex = TickUtil.getInitializableTickIndex(
-        PriceMath.priceToTickIndex(upperPrice, tokenAInfo.decimals, tokenBInfo.decimals),
-        poolData.tickSpacing
-    );
-
-    const whirlpoolData = await ctx.fetcher.getPool(poolAddress, { maxAge: 0 });
-    if (!whirlpoolData) {
-        throw new Error('No pool data')
-    }
-    // Option 1 - Get the current tick-array PDA based on your desired sequence
-    const startTick = TickUtil.getStartTickIndex(whirlpoolData.tickCurrentIndex, whirlpoolData.tickSpacing);
-    const tickArrayKey = PDAUtil.getTickArray(ORCA_WHIRLPOOL_PROGRAM_ID, poolAddress, startTick);
-
-    // Option 2 - Get the sequence of tick-arrays to trade in based on your trade direction. 
-    const indexs = new Array<number>();
-
-    const shift = aTob ? 0 : whirlpoolData.tickSpacing;
-    let offset = 0;
-    for (let i = 0; i < 3; i++) {
-        let index = TickUtil.getStartTickIndex(whirlpoolData.tickCurrentIndex, whirlpoolData.tickSpacing, offset);
-        offset = aTob ? offset - 1 : offset + 1;
-        indexs.push(index)
-    }
-
-    const tickArrays = await SwapUtils.getTickArrays(
-        whirlpoolData.tickCurrentIndex,
-        whirlpoolData.tickSpacing,
-        true,
-        ORCA_WHIRLPOOL_PROGRAM_ID,
-        poolAddress,
-        ctx.fetcher,
-    );
-
-    let tx: TransactionBuilder = new TransactionBuilder(ctx.connection, ctx.wallet);
-
-    for (const i of indexs) {
-        const pda = PDAUtil.getTickArray(ORCA_WHIRLPOOL_PROGRAM_ID, poolAddress, i);
-        const ta = await ctx.fetcher.getTickArray(pda.publicKey);
-        // Exit if it exists
-        if (!!ta) {
-            console.log("Tick already exists: " + pda.publicKey.toBase58());
-            continue;
+    for (const token_symbol of tokens_for_pool) {
+        if (token_symbol === "USDC") {
+            throw new Error("USDC is not supported in this script");
         }
 
-        tx.addInstruction(
-            initTickArrayIx(ctx.program, {
-                startTick: i,
-                tickArrayPda: pda,
-                whirlpool: poolAddress,
-                funder: signerPub
-            })
+        const token = TOKENS.find(t => t.symbol === token_symbol);
+        if (!token) {
+            throw new Error(`Token ${token_symbol} not found in tokens.json`);
+        }
+
+        console.log(`Creating pool for USDC-${token_symbol}. USDC: ${payment_token.key}. ${token_symbol}: ${token.key}.`);
+
+        const data = await createTestPool(
+            provider,
+            new PublicKey(payment_token.key),
+            new PublicKey(token.key),
+            payment_token?.decimals,
+            token.decimals,
+            token.price as number,
+            10,
+            ORCA_WHIRLPOOLS_CONFIG_DEVNET
         )
 
+        await fs.appendFile('pools.json', JSON.stringify(
+            {
+                pool: data.pool.toBase58(),
+                tokens: 'USDC-' + token_symbol,
+                price: token.price,
+                position: data.position.toBase58(),
+                ticks: data.ticks.map((tick) => {
+                    return {
+                        address: tick.address.toBase58(),
+                        startIndex: tick.startIndex,
+                    }
+                }),
+            }
+        ) + ',\n'
+        )
     }
-
-    await tx.buildAndExecute().catch(err => { console.error(err); throw new Error(err) });
-
 }
+
 run();
